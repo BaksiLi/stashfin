@@ -1,0 +1,40 @@
+services:
+  stashfin:
+    build:
+      context: .
+    container_name: stashfin
+    restart: unless-stopped
+    ports:
+      - "${STASHFIN_PUBLISHED_PORT:-19998}:8096"
+    environment:
+      STASHFIN_ADDR: ":8096"
+      STASHFIN_SERVER_NAME: "${STASHFIN_SERVER_NAME:-Stashfin}"
+      STASHFIN_SERVER_ID: "${STASHFIN_SERVER_ID:?set STASHFIN_SERVER_ID in .env}"
+      STASHFIN_USER: "${STASHFIN_USER:-stashfin}"
+      STASHFIN_PASSWORD: "${STASHFIN_PASSWORD:-}"
+      STASHFIN_ALLOW_EMPTY_PASSWORD: "${STASHFIN_ALLOW_EMPTY_PASSWORD:-false}"
+      STASH_INTERNAL_URL: "${STASH_INTERNAL_URL:-http://stash:9999}"
+      STASH_PUBLIC_URL: "${STASH_PUBLIC_URL:?set STASH_PUBLIC_URL in .env}"
+      STASH_API_KEY: "${STASH_API_KEY:?set STASH_API_KEY in .env}"
+      STASH_TIMEOUT: "${STASH_TIMEOUT:-15s}"
+    networks:
+      - jellystash
+      - edge_proxy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=edge_proxy
+      - traefik.http.routers.stashfin.rule=${STASHFIN_TRAEFIK_RULE:-Host(`stashfin.localhost`)}
+      - traefik.http.routers.stashfin.entrypoints=stash
+      - traefik.http.services.stashfin.loadbalancer.server.port=8096
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8096/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+networks:
+  jellystash:
+    external: true
+  edge_proxy:
+    external: true

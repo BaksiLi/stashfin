@@ -1,0 +1,9 @@
+.git
+.gocache
+.DS_Store
+**/.DS_Store
+.env
+.env.*
+!.env.example
+stashfin
+coverage.out
