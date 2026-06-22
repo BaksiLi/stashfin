@@ -1,0 +1,44 @@
+<svg width="1280" height="640" viewBox="0 0 1280 640" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Stashfin architecture diagram">
+  <rect width="1280" height="640" fill="#0b0b0d"/>
+  <defs>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff8400"/>
+      <stop offset="1" stop-color="#2d8a8a"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="16" flood-color="#000" flood-opacity=".35"/>
+    </filter>
+  </defs>
+  <text x="72" y="86" fill="#fafaf4" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="42" font-weight="720">Stashfin data path</text>
+  <text x="72" y="128" fill="#b9bab5" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="22">Jellyfin-shaped metadata in Go. Media bytes stay on Stash's Range-capable HTTP route.</text>
+
+  <g filter="url(#shadow)">
+    <rect x="72" y="218" width="250" height="148" rx="18" fill="#17191b" stroke="#3d4145"/>
+    <text x="112" y="278" fill="#fafaf4" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="32" font-weight="700">Infuse</text>
+    <text x="112" y="316" fill="#b9bab5" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18">Jellyfin client</text>
+
+    <rect x="515" y="218" width="250" height="148" rx="18" fill="#17191b" stroke="#ff8400" stroke-opacity=".7"/>
+    <text x="555" y="278" fill="#fafaf4" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="32" font-weight="700">Stashfin</text>
+    <text x="555" y="316" fill="#b9bab5" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18">metadata bridge</text>
+
+    <rect x="958" y="218" width="250" height="148" rx="18" fill="#17191b" stroke="#3d4145"/>
+    <text x="998" y="278" fill="#fafaf4" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="32" font-weight="700">Stash</text>
+    <text x="998" y="316" fill="#b9bab5" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18">GraphQL + streams</text>
+  </g>
+
+  <path d="M332 264 C390 240 444 240 505 264" stroke="url(#accent)" stroke-width="5" fill="none"/>
+  <polygon points="503,264 486,252 489,276" fill="#ff8400"/>
+  <text x="356" y="230" fill="#fafaf4" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18">browse, auth, images</text>
+
+  <path d="M775 264 C833 240 887 240 948 264" stroke="url(#accent)" stroke-width="5" fill="none"/>
+  <polygon points="946,264 929,252 932,276" fill="#2d8a8a"/>
+  <text x="804" y="230" fill="#fafaf4" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18">GraphQL</text>
+
+  <path d="M958 354 C738 526 478 526 322 354" stroke="#6dd3cf" stroke-width="5" stroke-dasharray="14 14" fill="none"/>
+  <polygon points="322,354 339,362 338,339" fill="#6dd3cf"/>
+  <text x="476" y="536" fill="#fafaf4" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="20">302 redirect: Infuse streams from STASH_PUBLIC_URL</text>
+
+  <rect x="72" y="480" width="16" height="74" fill="#ff8400"/>
+  <text x="104" y="506" fill="#fafaf4" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="650">Invariant</text>
+  <text x="104" y="540" fill="#b9bab5" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="22">Stashfin may generate small JPEG covers, but it does not proxy video chunks.</text>
+</svg>

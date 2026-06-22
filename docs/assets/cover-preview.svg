@@ -1,0 +1,75 @@
+<svg width="1280" height="720" viewBox="0 0 1280 720" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Stashfin generated library cover preview">
+  <rect width="1280" height="720" fill="#0b0b0d"/>
+  <defs>
+    <linearGradient id="shade" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#050506" stop-opacity=".68"/>
+      <stop offset=".62" stop-color="#050506" stop-opacity=".24"/>
+      <stop offset="1" stop-color="#050506" stop-opacity=".08"/>
+    </linearGradient>
+    <linearGradient id="warm" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#ff8400"/>
+      <stop offset=".52" stop-color="#d9422f"/>
+      <stop offset="1" stop-color="#2d8a8a"/>
+    </linearGradient>
+    <clipPath id="tile">
+      <rect x="6" y="6" width="313" height="351" rx="0"/>
+    </clipPath>
+  </defs>
+  <g opacity=".96">
+    <rect x="6" y="6" width="313" height="351" fill="#263a3c"/>
+    <rect x="325" y="6" width="313" height="351" fill="#6f3b42"/>
+    <rect x="644" y="6" width="313" height="351" fill="#c77a33"/>
+    <rect x="963" y="6" width="311" height="351" fill="#244d5b"/>
+    <rect x="6" y="363" width="313" height="351" fill="#a92f36"/>
+    <rect x="325" y="363" width="313" height="351" fill="#233f5b"/>
+    <rect x="644" y="363" width="313" height="351" fill="#7f5a37"/>
+    <rect x="963" y="363" width="311" height="351" fill="#20433a"/>
+  </g>
+  <g opacity=".36">
+    <circle cx="155" cy="152" r="150" fill="#f2d7b5"/>
+    <circle cx="510" cy="188" r="132" fill="#f6c6a5"/>
+    <circle cx="795" cy="130" r="120" fill="#ffe2b5"/>
+    <circle cx="1122" cy="184" r="140" fill="#f5c3aa"/>
+    <circle cx="170" cy="532" r="138" fill="#ffc1b1"/>
+    <circle cx="474" cy="526" r="144" fill="#d0ecff"/>
+    <circle cx="826" cy="542" r="132" fill="#f0d0aa"/>
+    <circle cx="1110" cy="512" r="136" fill="#b8ead8"/>
+  </g>
+  <g opacity=".5" stroke="#080809" stroke-width="6">
+    <line x1="322" y1="6" x2="322" y2="714"/>
+    <line x1="641" y1="6" x2="641" y2="714"/>
+    <line x1="960" y1="6" x2="960" y2="714"/>
+    <line x1="6" y1="360" x2="1274" y2="360"/>
+  </g>
+  <rect width="1280" height="720" fill="url(#shade)"/>
+  <rect y="420" width="1280" height="300" fill="#000" opacity=".34"/>
+  <rect x="58" y="430" width="16" height="178" fill="url(#warm)"/>
+  <g fill="#fafaf4">
+    <rect x="98" y="454" width="26" height="26"/>
+    <rect x="131" y="454" width="26" height="26"/>
+    <rect x="164" y="454" width="26" height="26"/>
+    <rect x="98" y="487" width="26" height="26"/>
+    <rect x="98" y="520" width="26" height="26"/>
+    <rect x="131" y="553" width="26" height="26"/>
+    <rect x="164" y="553" width="26" height="26"/>
+    <rect x="218" y="454" width="26" height="26"/>
+    <rect x="251" y="454" width="26" height="26"/>
+    <rect x="284" y="454" width="26" height="26"/>
+    <rect x="218" y="487" width="26" height="26"/>
+    <rect x="251" y="520" width="26" height="26"/>
+    <rect x="284" y="553" width="26" height="26"/>
+    <rect x="338" y="454" width="26" height="26"/>
+    <rect x="371" y="454" width="26" height="26"/>
+    <rect x="338" y="487" width="26" height="26"/>
+    <rect x="371" y="520" width="26" height="26"/>
+    <rect x="338" y="553" width="26" height="26"/>
+    <rect x="371" y="553" width="26" height="26"/>
+    <rect x="425" y="454" width="26" height="26"/>
+    <rect x="458" y="454" width="26" height="26"/>
+    <rect x="491" y="454" width="26" height="26"/>
+    <rect x="458" y="487" width="26" height="26"/>
+    <rect x="458" y="520" width="26" height="26"/>
+    <rect x="458" y="553" width="26" height="26"/>
+  </g>
+  <text x="98" y="650" fill="#c9c9c5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="28" letter-spacing="0">Generated from recent Stash artwork, cached as Jellyfin library images</text>
+</svg>

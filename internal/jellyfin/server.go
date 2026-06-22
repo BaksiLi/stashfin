@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"hash/fnv"
 	"image"
 	"image/color"
 	"image/draw"
@@ -30,6 +31,7 @@ type Server struct {
 	log        *slog.Logger
 	imageCache sync.Map
 	wallCache  sync.Map
+	imageSeed  string
 }
 
 type wallCacheEntry struct {
@@ -38,7 +40,12 @@ type wallCacheEntry struct {
 }
 
 func NewServer(cfg config.Config, stashClient *stash.Client, logger *slog.Logger) *Server {
-	return &Server{cfg: cfg, stash: stashClient, log: logger}
+	return &Server{
+		cfg:       cfg,
+		stash:     stashClient,
+		log:       logger,
+		imageSeed: strconv.FormatInt(time.Now().Unix(), 36),
+	}
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -267,14 +274,16 @@ func (s *Server) rootFolders() []map[string]any {
 }
 
 func (s *Server) rootFolder(name, id string) map[string]any {
+	imageTag := s.rootImageTag(id)
 	return map[string]any{
-		"Name":           name,
-		"Id":             id,
-		"ServerId":       s.cfg.ServerID,
-		"Type":           "CollectionFolder",
-		"IsFolder":       true,
-		"CollectionType": "movies",
-		"ImageTags":      map[string]string{"Primary": "stash"},
+		"Name":            name,
+		"Id":              id,
+		"ServerId":        s.cfg.ServerID,
+		"Type":            "CollectionFolder",
+		"IsFolder":        true,
+		"CollectionType":  "movies",
+		"ImageTags":       map[string]string{"Primary": imageTag},
+		"PrimaryImageTag": imageTag,
 	}
 }
 
@@ -1883,14 +1892,24 @@ func imageTag(rawURL string) string {
 	if rawURL == "" {
 		return ""
 	}
-	return "stash"
+	return "stash-" + hashImageTag(rawURL)
 }
 
 func imageTags(rawURL string) map[string]string {
 	if rawURL == "" {
 		return map[string]string{}
 	}
-	return map[string]string{"Primary": "stash"}
+	return map[string]string{"Primary": imageTag(rawURL)}
+}
+
+func (s *Server) rootImageTag(itemID string) string {
+	return "wall-" + hashImageTag(itemID+"-"+s.imageSeed)
+}
+
+func hashImageTag(value string) string {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(value))
+	return strconv.FormatUint(uint64(h.Sum32()), 36)
 }
 
 func usableImage(rawURL string) bool {

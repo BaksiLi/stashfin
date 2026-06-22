@@ -3,22 +3,11 @@
 Stashfin is a small Jellyfin-compatible bridge for Stash. It gives clients like
 Infuse a Jellyfin-shaped catalog while keeping media bytes out of the app.
 
+![Generated Stashfin library cover preview](docs/assets/cover-preview.svg)
+
 ## Design
 
-```
-Infuse
-  |  Jellyfin API metadata
-  v
-Stashfin
-  |  GraphQL
-  v
-Stash
-
-Infuse
-  |  redirected/direct Range-capable stream
-  v
-Stash public HTTP route
-```
+![Stashfin architecture](docs/assets/architecture.svg)
 
 The important split is:
 
@@ -28,6 +17,28 @@ The important split is:
 
 Stashfin rewrites Stash-generated stream URLs from the internal origin to the
 public origin. It does not proxy video chunks through Go.
+
+## Direction
+
+Stashfin is intentionally narrower than a full Jellyfin emulator. It is an
+Infuse-first bridge for trusted local/VPN use:
+
+- Keep the hot media path out of the app: video playback is a redirect to Stash.
+- Use Stash as the source of truth: metadata, tag hierarchy, play activity,
+  resume position, and ratings are written through GraphQL.
+- Shape Stash into a small Jellyfin catalog: `Scenes`, `Performers`, `Studios`,
+  and `Tags`.
+- Prefer a few predictable conventions over a Web UI and per-client profile
+  matrix.
+
+The excellent [feldorn/Stash-Jellyfin-Proxy](https://github.com/feldorn/Stash-Jellyfin-Proxy)
+project is the main reference for Jellyfin compatibility edge cases. Stashfin
+borrows the useful ideas, especially hierarchy-aware tag filtering, client image
+cache busting, and library cover generation. It deliberately avoids the parts
+that would make this project a second media server: built-in configuration UI,
+stream byte forwarding, client profile management, playlist editing, and series
+emulation. Those can be added later only when they solve a real client workflow
+without obscuring the core path.
 
 ## Current Scope
 
@@ -68,9 +79,10 @@ Catalog support:
   through Jellyfin image endpoints. Root libraries use generated covers from
   recent Stash content with a Stashfin treatment: artwork grid, Stash-orange
   accents, and dot-matrix library titles. Stashfin skips Stash default
-  placeholder images when possible, caches resolved image URLs and generated
-  covers in memory, and refreshes covers lazily after six hours. Use
-  `?refresh=1` on a root image endpoint to rebuild immediately.
+  placeholder images when possible, uses URL-derived image tags for client cache
+  refresh, caches resolved image URLs and generated covers in memory, and
+  refreshes covers lazily after six hours. Use `?refresh=1` on a root image
+  endpoint to rebuild immediately.
 - Playback state: progress and stopped events update Stash resume/play activity;
   completed stops are counted as plays.
 
