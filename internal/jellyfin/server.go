@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/BaksiLi/stashfin/internal/buildinfo"
 	"github.com/BaksiLi/stashfin/internal/config"
 	"github.com/BaksiLi/stashfin/internal/stash"
 )
@@ -54,6 +55,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Emby-Authorization, X-Emby-Token, X-MediaBrowser-Token")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+	w.Header().Set("X-Stashfin-Version", buildinfo.Version)
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusNoContent)
 		return
@@ -64,7 +66,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if lowerPath == "/healthz" {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		writeJSON(w, http.StatusOK, map[string]string{
+			"status":  "ok",
+			"version": buildinfo.Version,
+			"commit":  buildinfo.Commit,
+		})
 		return
 	}
 

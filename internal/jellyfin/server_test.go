@@ -1,9 +1,11 @@
 package jellyfin
 
 import (
+	"encoding/json"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/BaksiLi/stashfin/internal/buildinfo"
 	"github.com/BaksiLi/stashfin/internal/config"
 	"github.com/BaksiLi/stashfin/internal/stash"
 )
@@ -81,5 +83,29 @@ func TestPerformerFolderUUIDRoundTrip(t *testing.T) {
 	}
 	if got := prefixedIDFromUUID(id); got != "performer-42" {
 		t.Fatalf("prefixedIDFromUUID(%q) = %q", id, got)
+	}
+}
+
+func TestHealthReportsStashfinBuild(t *testing.T) {
+	previousVersion, previousCommit := buildinfo.Version, buildinfo.Commit
+	buildinfo.Version, buildinfo.Commit = "v1.2.3", "abc123"
+	t.Cleanup(func() {
+		buildinfo.Version, buildinfo.Commit = previousVersion, previousCommit
+	})
+
+	server := NewServer(config.Config{}, nil, nil)
+	request := httptest.NewRequest("GET", "/healthz", nil)
+	recorder := httptest.NewRecorder()
+	server.ServeHTTP(recorder, request)
+
+	if got := recorder.Header().Get("X-Stashfin-Version"); got != "v1.2.3" {
+		t.Fatalf("X-Stashfin-Version = %q", got)
+	}
+	var response map[string]string
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if response["version"] != "v1.2.3" || response["commit"] != "abc123" {
+		t.Fatalf("health response = %#v", response)
 	}
 }

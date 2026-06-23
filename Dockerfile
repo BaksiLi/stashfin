@@ -1,10 +1,15 @@
 FROM golang:1.24-alpine AS build
 
+ARG VERSION=dev
+ARG COMMIT=unknown
+
 WORKDIR /src
 COPY go.mod ./
 COPY cmd ./cmd
 COPY internal ./internal
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/stashfin ./cmd/stashfin
+RUN CGO_ENABLED=0 go build -trimpath \
+    -ldflags="-s -w -X github.com/BaksiLi/stashfin/internal/buildinfo.Version=${VERSION} -X github.com/BaksiLi/stashfin/internal/buildinfo.Commit=${COMMIT}" \
+    -o /out/stashfin ./cmd/stashfin
 
 FROM alpine:3.22
 

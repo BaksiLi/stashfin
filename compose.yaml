@@ -2,6 +2,9 @@ services:
   stashfin:
     build:
       context: .
+      args:
+        VERSION: "${STASHFIN_VERSION:-dev}"
+        COMMIT: "${STASHFIN_COMMIT:-unknown}"
     container_name: stashfin
     restart: unless-stopped
     ports:

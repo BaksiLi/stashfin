@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/BaksiLi/stashfin/internal/buildinfo"
 	"github.com/BaksiLi/stashfin/internal/config"
 	"github.com/BaksiLi/stashfin/internal/jellyfin"
 	"github.com/BaksiLi/stashfin/internal/stash"
@@ -18,6 +19,7 @@ func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
+	logger.Info("starting Stashfin process", "version", buildinfo.Version, "commit", buildinfo.Commit)
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -46,6 +48,7 @@ func main() {
 	errs := make(chan error, 1)
 	go func() {
 		logger.Info("starting Stashfin",
+			"version", buildinfo.Version,
 			"address", cfg.Address,
 			"server_name", cfg.ServerName,
 			"stash_internal_url", cfg.StashInternalURL,
