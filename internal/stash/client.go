@@ -448,6 +448,7 @@ const sceneFields = `
 	director
 	urls
 	date
+	created_at
 	rating100
 	resume_time
 	play_duration

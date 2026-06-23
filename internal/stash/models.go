@@ -8,6 +8,7 @@ type Scene struct {
 	Director     string           `json:"director"`
 	URLs         []string         `json:"urls"`
 	Date         string           `json:"date"`
+	CreatedAt    string           `json:"created_at"`
 	Rating100    int              `json:"rating100"`
 	ResumeTime   float64          `json:"resume_time"`
 	PlayDuration float64          `json:"play_duration"`

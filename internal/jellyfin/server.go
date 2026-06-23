@@ -1283,6 +1283,9 @@ func (s *Server) formatItem(scene stash.Scene, parentID string) map[string]any {
 			item["PremiereDate"] = scene.Date + "T00:00:00.0000000Z"
 		}
 	}
+	if scene.CreatedAt != "" {
+		item["DateCreated"] = scene.CreatedAt
+	}
 	if scene.Details != "" {
 		item["Overview"] = scene.Details
 	}
@@ -1786,8 +1789,10 @@ func sceneSort(r *http.Request) (string, string) {
 	switch sortBy {
 	case "sortname", "name":
 		sort = "title"
-	case "productionyear", "premieredate", "datecreated", "date":
+	case "productionyear", "premieredate", "date":
 		sort = "date"
+	case "datecreated":
+		sort = "created_at"
 	case "dateplayed":
 		sort = "last_played_at"
 	case "playcount":

@@ -3,11 +3,19 @@
 Stashfin is a small Jellyfin-compatible bridge for Stash. It gives clients like
 Infuse a Jellyfin-shaped catalog while keeping media bytes out of the app.
 
-![Generated Stashfin library cover preview](docs/assets/cover-preview.svg)
+<p align="center">
+  <img src="docs/assets/cover-preview.svg" width="920" alt="Stashfin libraries in Infuse">
+</p>
 
 ## Design
 
-![Stashfin architecture](docs/assets/architecture.svg)
+```mermaid
+flowchart LR
+    I[Infuse] -->|Jellyfin API| F[Stashfin]
+    F -->|GraphQL| S[Stash]
+    F -. 302 stream redirect .-> S
+    S -->|Range-capable media stream| I
+```
 
 The important split is:
 
@@ -65,16 +73,17 @@ Implemented endpoints and features:
 Catalog support:
 
 - Root views: `Scenes`, `Performers`, `Studios`, and `Tags`.
-- Scene metadata: title, overview, date/year, rating, tags/genres, studio,
-  performers, provider ids, external URLs, basic user data, and media sources.
+- Scene metadata: title, overview, independent added/release dates, year, rating,
+  tags/genres, studio, performers, provider ids, external URLs, basic user data,
+  and media sources.
 - Performer/studio/tag browsing: entity roots are exposed as folder-like items,
   and opening an entity returns scenes filtered in Stash via GraphQL.
 - Tag hierarchy: top-level tags appear under `Tags`; tags with children open to
   child tags plus an `All Scenes` entry that includes descendants.
 - Cast: scenes expose Stash performers as Jellyfin `Person` records, while the
   `Performers` library uses browsable folder items for Infuse compatibility.
-- Sorting: name/date/runtime/play count/play date/rating sorts are mapped to
-  Stash sort keys where Stash supports them.
+- Sorting: name, date added, release date, runtime, play count, play date, and
+  rating sorts are mapped to distinct Stash sort keys where Stash supports them.
 - Images: scene screenshots plus performer, studio, and tag images are exposed
   through Jellyfin image endpoints. Root libraries use generated covers from
   recent Stash content with a Stashfin treatment: artwork grid, Stash-orange
