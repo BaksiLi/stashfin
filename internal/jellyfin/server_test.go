@@ -46,3 +46,40 @@ func TestFormatItemReturnsIndependentReleaseAndAddedDates(t *testing.T) {
 		t.Fatalf("DateCreated = %#v", got)
 	}
 }
+
+func TestPerformerLibraryAndCastUseDistinctJellyfinIdentities(t *testing.T) {
+	server := &Server{cfg: config.Config{ServerID: "test-server"}}
+	performer := stash.Performer{ID: "42", Name: "Example", SceneCount: 3}
+
+	folder := server.formatPerformerFolder(performer, "root-performers")
+	person := server.formatPerformer(performer, "")
+
+	if got := folder["Id"]; got != "11000000-0000-0000-0000-000000000042" {
+		t.Fatalf("performer folder Id = %#v", got)
+	}
+	if got := folder["Type"]; got != "Folder" {
+		t.Fatalf("performer folder Type = %#v", got)
+	}
+	if got := person["Id"]; got != "10000000-0000-0000-0000-000000000042" {
+		t.Fatalf("cast person Id = %#v", got)
+	}
+	if got := person["Type"]; got != "Person" {
+		t.Fatalf("cast person Type = %#v", got)
+	}
+	if got := person["IsFolder"]; got != false {
+		t.Fatalf("cast person IsFolder = %#v", got)
+	}
+	if _, ok := person["CollectionType"]; ok {
+		t.Fatal("cast person must not include CollectionType")
+	}
+}
+
+func TestPerformerFolderUUIDRoundTrip(t *testing.T) {
+	id := entityUUID("performer", "42")
+	if got := uuidKind(id); got != "performer" {
+		t.Fatalf("uuidKind(%q) = %q", id, got)
+	}
+	if got := prefixedIDFromUUID(id); got != "performer-42" {
+		t.Fatalf("prefixedIDFromUUID(%q) = %q", id, got)
+	}
+}

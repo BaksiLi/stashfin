@@ -81,7 +81,8 @@ Catalog support:
 - Tag hierarchy: top-level tags appear under `Tags`; tags with children open to
   child tags plus an `All Scenes` entry that includes descendants.
 - Cast: scenes expose Stash performers as Jellyfin `Person` records, while the
-  `Performers` library uses browsable folder items for Infuse compatibility.
+  `Performers` library uses separate browsable folder identities for Infuse
+  compatibility.
 - Sorting: name, date added, release date, runtime, play count, play date, and
   rating sorts are mapped to distinct Stash sort keys where Stash supports them.
 - Images: scene screenshots plus performer, studio, and tag images are exposed

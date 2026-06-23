@@ -322,6 +322,14 @@ func (s *Server) items(w http.ResponseWriter, r *http.Request) {
 		filter.PerformerID = numericEntityRef(parentID, "person")
 		filter.SearchTerm = queryValue(r, "SearchTerm")
 		s.sceneItems(w, r, parentID, filter)
+	case strings.HasPrefix(parentID, "performer-"):
+		filter.PerformerID = numericEntityID(parentID, "performer-")
+		filter.SearchTerm = queryValue(r, "SearchTerm")
+		s.sceneItems(w, r, parentID, filter)
+	case uuidKind(parentID) == "performer":
+		filter.PerformerID = numericEntityRef(parentID, "performer")
+		filter.SearchTerm = queryValue(r, "SearchTerm")
+		s.sceneItems(w, r, parentID, filter)
 	case strings.HasPrefix(parentID, "studio-"):
 		filter.StudioID = numericEntityID(parentID, "studio-")
 		filter.SearchTerm = queryValue(r, "SearchTerm")
@@ -520,6 +528,9 @@ func (s *Server) item(w http.ResponseWriter, r *http.Request, itemID string) {
 	case strings.HasPrefix(itemID, "person-"):
 		s.person(w, r, numericEntityID(itemID, "person-"))
 		return
+	case strings.HasPrefix(itemID, "performer-"):
+		s.performerFolder(w, r, numericEntityID(itemID, "performer-"))
+		return
 	case strings.HasPrefix(itemID, "studio-"):
 		s.studio(w, r, numericEntityID(itemID, "studio-"))
 		return
@@ -556,7 +567,21 @@ func (s *Server) item(w http.ResponseWriter, r *http.Request, itemID string) {
 }
 
 func (s *Server) persons(w http.ResponseWriter, r *http.Request) {
-	s.performerItems(w, r)
+	limit := boundedLimit(r, s.cfg.DefaultPageSize, s.cfg.MaxPageSize)
+	start := startIndex(r)
+	page := start/limit + 1
+	sort, direction := entitySort(r)
+	performers, err := s.stash.ListPerformersBy(r.Context(), page, limit, queryValue(r, "SearchTerm"), sort, direction)
+	if err != nil {
+		s.log.Error("list persons failed", "error", err)
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "Stash query failed"})
+		return
+	}
+	items := make([]map[string]any, 0, len(performers.Performers))
+	for _, performer := range performers.Performers {
+		items = append(items, s.formatPerformer(performer, ""))
+	}
+	writeJSON(w, http.StatusOK, itemsResponse(items, start, performers.Count))
 }
 
 func (s *Server) person(w http.ResponseWriter, r *http.Request, id string) {
@@ -571,6 +596,20 @@ func (s *Server) person(w http.ResponseWriter, r *http.Request, id string) {
 		return
 	}
 	writeJSON(w, http.StatusOK, s.formatPerformer(performer, "root-performers"))
+}
+
+func (s *Server) performerFolder(w http.ResponseWriter, r *http.Request, id string) {
+	performer, ok, err := s.stash.FindPerformer(r.Context(), id)
+	if err != nil {
+		s.log.Error("find performer folder failed", "id", id, "error", err)
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "Stash query failed"})
+		return
+	}
+	if !ok {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "Not found"})
+		return
+	}
+	writeJSON(w, http.StatusOK, s.formatPerformerFolder(performer, "root-performers"))
 }
 
 func (s *Server) genres(w http.ResponseWriter, r *http.Request) {
@@ -746,6 +785,20 @@ func (s *Server) image(w http.ResponseWriter, r *http.Request, itemID string) {
 		performer, ok, err := s.stash.FindPerformer(r.Context(), numericEntityID(itemID, "person-"))
 		if err != nil {
 			s.log.Error("image performer lookup failed", "item_id", itemID, "error", err)
+			writeJSON(w, http.StatusBadGateway, map[string]string{"error": "Stash query failed"})
+			return
+		}
+		if !ok || performer.ImagePath == "" {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "Not found"})
+			return
+		}
+		s.serveCachedImage(w, r, itemID, performer.ImagePath)
+		return
+	}
+	if strings.HasPrefix(itemID, "performer-") {
+		performer, ok, err := s.stash.FindPerformer(r.Context(), numericEntityID(itemID, "performer-"))
+		if err != nil {
+			s.log.Error("image performer folder lookup failed", "item_id", itemID, "error", err)
 			writeJSON(w, http.StatusBadGateway, map[string]string{"error": "Stash query failed"})
 			return
 		}
@@ -1348,6 +1401,10 @@ func (s *Server) formatPerformer(performer stash.Performer, parentID string) map
 		s.cacheImage(personID(performer.ID), s.stash.PublicURL(performer.ImagePath))
 	}
 	item := s.folderItem(performer.Name, itemID, parentID, "Person", performer.SceneCount)
+	item["IsFolder"] = false
+	delete(item, "CollectionType")
+	delete(item, "ChildCount")
+	delete(item, "RecursiveItemCount")
 	item["PrimaryImageTag"] = imageTag(performer.ImagePath)
 	item["ImageTags"] = imageTags(performer.ImagePath)
 	item["Overview"] = performer.Details
@@ -1364,10 +1421,10 @@ func (s *Server) formatPerformer(performer stash.Performer, parentID string) map
 }
 
 func (s *Server) formatPerformerFolder(performer stash.Performer, parentID string) map[string]any {
-	itemID := entityUUID("person", performer.ID)
+	itemID := entityUUID("performer", performer.ID)
 	if performer.ImagePath != "" {
 		s.cacheImage(itemID, s.stash.PublicURL(performer.ImagePath))
-		s.cacheImage(personID(performer.ID), s.stash.PublicURL(performer.ImagePath))
+		s.cacheImage(performerID(performer.ID), s.stash.PublicURL(performer.ImagePath))
 	}
 	item := s.folderItem(performer.Name, itemID, parentID, "Folder", performer.SceneCount)
 	item["PrimaryImageTag"] = imageTag(performer.ImagePath)
@@ -1693,6 +1750,10 @@ func personID(id string) string {
 	return "person-" + id
 }
 
+func performerID(id string) string {
+	return "performer-" + id
+}
+
 func studioID(id string) string {
 	return "studio-" + id
 }
@@ -1706,6 +1767,8 @@ func entityUUID(kind, id string) string {
 	switch kind {
 	case "person":
 		prefix = "10000000"
+	case "performer":
+		prefix = "11000000"
 	case "studio":
 		prefix = "20000000"
 	case "tag":
@@ -1719,6 +1782,8 @@ func uuidKind(value string) string {
 	switch {
 	case strings.HasPrefix(value, "10000000-0000-0000-0000-"):
 		return "person"
+	case strings.HasPrefix(value, "11000000-0000-0000-0000-"):
+		return "performer"
 	case strings.HasPrefix(value, "20000000-0000-0000-0000-"):
 		return "studio"
 	case strings.HasPrefix(value, "30000000-0000-0000-0000-"):
@@ -1737,6 +1802,8 @@ func prefixedIDFromUUID(value string) string {
 	switch kind {
 	case "person":
 		return personID(id)
+	case "performer":
+		return performerID(id)
 	case "studio":
 		return studioID(id)
 	case "tag":
