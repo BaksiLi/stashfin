@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"hash/fnv"
 	"image"
 	"image/color"
@@ -30,6 +31,7 @@ type Server struct {
 	cfg        config.Config
 	stash      *stash.Client
 	log        *slog.Logger
+	playback   *playbackTracker
 	imageCache sync.Map
 	wallCache  sync.Map
 	imageSeed  string
@@ -40,11 +42,18 @@ type wallCacheEntry struct {
 	cachedAt time.Time
 }
 
+const (
+	maxCoverImageBytes  = 16 << 20
+	maxCoverImagePixels = 12_000_000
+	maxCoverImageSide   = 16_384
+)
+
 func NewServer(cfg config.Config, stashClient *stash.Client, logger *slog.Logger) *Server {
 	return &Server{
 		cfg:       cfg,
 		stash:     stashClient,
 		log:       logger,
+		playback:  newPlaybackTracker(),
 		imageSeed: strconv.FormatInt(time.Now().Unix(), 36),
 	}
 }
@@ -191,12 +200,16 @@ func (s *Server) servePublic(w http.ResponseWriter, r *http.Request, p string) {
 }
 
 func (s *Server) authenticate(w http.ResponseWriter, r *http.Request) {
+	// Jellyfin clients require a username field, but Stashfin intentionally uses
+	// one password credential and a stable configured display name.
 	var req struct {
 		Username    string `json:"Username"`
 		Password    string `json:"Pw"`
 		PasswordAlt string `json:"Password"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&req)
+	if !decodeJSONBody(w, r, &req) {
+		return
+	}
 
 	password := firstNonEmpty(req.Password, req.PasswordAlt)
 	if !(s.cfg.AllowEmptyPassword && strings.TrimSpace(s.cfg.Password) == "") && strings.TrimSpace(password) != strings.TrimSpace(s.cfg.Password) {
@@ -206,7 +219,7 @@ func (s *Server) authenticate(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"User": map[string]any{
-			"Name":                  firstNonEmpty(req.Username, s.cfg.User),
+			"Name":                  s.cfg.User,
 			"Id":                    s.cfg.User,
 			"HasPassword":           true,
 			"HasConfiguredPassword": true,
@@ -360,77 +373,81 @@ func (s *Server) items(w http.ResponseWriter, r *http.Request) {
 func (s *Server) sceneItems(w http.ResponseWriter, r *http.Request, parentID string, filter stash.SceneFilter) {
 	limit := boundedLimit(r, s.cfg.DefaultPageSize, s.cfg.MaxPageSize)
 	start := startIndex(r)
-	page := start/limit + 1
-
-	scenes, err := s.stash.ListScenesBy(r.Context(), page, limit, filter)
+	scenes, total, err := fetchWindow(start, limit, limit, func(page, perPage int) ([]stash.Scene, int, error) {
+		result, err := s.stash.ListScenesBy(r.Context(), page, perPage, filter)
+		return result.Scenes, result.Count, err
+	})
 	if err != nil {
 		s.log.Error("list scenes failed", "error", err)
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "Stash query failed"})
 		return
 	}
 
-	items := make([]map[string]any, 0, len(scenes.Scenes))
-	for _, scene := range scenes.Scenes {
+	items := make([]map[string]any, 0, len(scenes))
+	for _, scene := range scenes {
 		items = append(items, s.formatItem(scene, parentID))
 	}
-	writeJSON(w, http.StatusOK, itemsResponse(items, start, scenes.Count))
+	writeJSON(w, http.StatusOK, itemsResponse(items, start, total))
 }
 
 func (s *Server) performerItems(w http.ResponseWriter, r *http.Request) {
 	limit := boundedLimit(r, s.cfg.DefaultPageSize, s.cfg.MaxPageSize)
 	start := startIndex(r)
-	page := start/limit + 1
-
 	sort, direction := entitySort(r)
-	performers, err := s.stash.ListPerformersBy(r.Context(), page, limit, queryValue(r, "SearchTerm"), sort, direction)
+	performers, total, err := fetchWindow(start, limit, limit, func(page, perPage int) ([]stash.Performer, int, error) {
+		result, err := s.stash.ListPerformersBy(r.Context(), page, perPage, queryValue(r, "SearchTerm"), sort, direction)
+		return result.Performers, result.Count, err
+	})
 	if err != nil {
 		s.log.Error("list performers failed", "error", err)
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "Stash query failed"})
 		return
 	}
-	items := make([]map[string]any, 0, len(performers.Performers))
-	for _, performer := range performers.Performers {
+	items := make([]map[string]any, 0, len(performers))
+	for _, performer := range performers {
 		items = append(items, s.formatPerformerFolder(performer, "root-performers"))
 	}
-	writeJSON(w, http.StatusOK, itemsResponse(items, start, performers.Count))
+	writeJSON(w, http.StatusOK, itemsResponse(items, start, total))
 }
 
 func (s *Server) studioItems(w http.ResponseWriter, r *http.Request) {
 	limit := boundedLimit(r, s.cfg.DefaultPageSize, s.cfg.MaxPageSize)
 	start := startIndex(r)
-	page := start/limit + 1
-
 	sort, direction := entitySort(r)
-	studios, err := s.stash.ListStudiosBy(r.Context(), page, limit, queryValue(r, "SearchTerm"), sort, direction)
+	studios, total, err := fetchWindow(start, limit, limit, func(page, perPage int) ([]stash.Studio, int, error) {
+		result, err := s.stash.ListStudiosBy(r.Context(), page, perPage, queryValue(r, "SearchTerm"), sort, direction)
+		return result.Studios, result.Count, err
+	})
 	if err != nil {
 		s.log.Error("list studios failed", "error", err)
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "Stash query failed"})
 		return
 	}
-	items := make([]map[string]any, 0, len(studios.Studios))
-	for _, studio := range studios.Studios {
+	items := make([]map[string]any, 0, len(studios))
+	for _, studio := range studios {
 		items = append(items, s.formatStudio(studio, "root-studios"))
 	}
-	writeJSON(w, http.StatusOK, itemsResponse(items, start, studios.Count))
+	writeJSON(w, http.StatusOK, itemsResponse(items, start, total))
 }
 
 func (s *Server) tagItems(w http.ResponseWriter, r *http.Request) {
 	limit := boundedLimit(r, s.cfg.DefaultPageSize, s.cfg.MaxPageSize)
 	start := startIndex(r)
-	page := start/limit + 1
-
 	sort, direction := entitySort(r)
-	tags, err := s.stash.ListTopTagsBy(r.Context(), page, limit, queryValue(r, "SearchTerm"), sort, direction)
+	tags, total, err := fetchWindow(start, limit, limit, func(page, perPage int) ([]stash.Tag, int, error) {
+		result, err := s.stash.ListTopTagsBy(r.Context(), page, perPage, queryValue(r, "SearchTerm"), sort, direction)
+		return result.Tags, result.Count, err
+	})
 	if err != nil {
 		s.log.Error("list tags failed", "error", err)
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "Stash query failed"})
 		return
 	}
-	items := make([]map[string]any, 0, len(tags.Tags))
-	for _, tag := range tags.Tags {
+	items := make([]map[string]any, 0, len(tags))
+	for _, tag := range tags {
 		items = append(items, s.formatTag(tag, "root-tags"))
 	}
-	writeJSON(w, http.StatusOK, itemsResponse(items, start, tags.Count))
+	writeJSON(w, http.StatusOK, itemsResponse(items, start, total))
 }
 
 func (s *Server) tagChildrenOrScenes(w http.ResponseWriter, r *http.Request, tagIDValue, parentID string) {
@@ -454,23 +471,39 @@ func (s *Server) tagChildrenOrScenes(w http.ResponseWriter, r *http.Request, tag
 
 	limit := boundedLimit(r, s.cfg.DefaultPageSize, s.cfg.MaxPageSize)
 	start := startIndex(r)
-	page := start/limit + 1
 	sort, direction := entitySort(r)
-	children, err := s.stash.ListChildTagsBy(r.Context(), tagIDValue, page, limit, queryValue(r, "SearchTerm"), sort, direction)
+	searchTerm := queryValue(r, "SearchTerm")
+	includeAllScenes := searchTerm == ""
+	childStart := start
+	childLimit := limit
+	if includeAllScenes {
+		if start == 0 {
+			childLimit--
+		} else {
+			childStart--
+		}
+	}
+	children := []stash.Tag{}
+	total := tag.ChildCount
+	if childLimit > 0 {
+		children, total, err = fetchWindow(childStart, childLimit, childLimit, func(page, perPage int) ([]stash.Tag, int, error) {
+			result, err := s.stash.ListChildTagsBy(r.Context(), tagIDValue, page, perPage, searchTerm, sort, direction)
+			return result.Tags, result.Count, err
+		})
+	}
 	if err != nil {
 		s.log.Error("list child tags failed", "id", tagIDValue, "error", err)
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "Stash query failed"})
 		return
 	}
-	items := make([]map[string]any, 0, len(children.Tags)+1)
-	if start == 0 && queryValue(r, "SearchTerm") == "" {
+	items := make([]map[string]any, 0, len(children)+1)
+	if start == 0 && includeAllScenes {
 		items = append(items, s.allScenesTagFolder(tag, parentID))
 	}
-	for _, child := range children.Tags {
+	for _, child := range children {
 		items = append(items, s.formatTag(child, parentID))
 	}
-	total := children.Count
-	if queryValue(r, "SearchTerm") == "" {
+	if includeAllScenes {
 		total++
 	}
 	writeJSON(w, http.StatusOK, itemsResponse(items, start, total))
@@ -575,19 +608,21 @@ func (s *Server) item(w http.ResponseWriter, r *http.Request, itemID string) {
 func (s *Server) persons(w http.ResponseWriter, r *http.Request) {
 	limit := boundedLimit(r, s.cfg.DefaultPageSize, s.cfg.MaxPageSize)
 	start := startIndex(r)
-	page := start/limit + 1
 	sort, direction := entitySort(r)
-	performers, err := s.stash.ListPerformersBy(r.Context(), page, limit, queryValue(r, "SearchTerm"), sort, direction)
+	performers, total, err := fetchWindow(start, limit, limit, func(page, perPage int) ([]stash.Performer, int, error) {
+		result, err := s.stash.ListPerformersBy(r.Context(), page, perPage, queryValue(r, "SearchTerm"), sort, direction)
+		return result.Performers, result.Count, err
+	})
 	if err != nil {
 		s.log.Error("list persons failed", "error", err)
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "Stash query failed"})
 		return
 	}
-	items := make([]map[string]any, 0, len(performers.Performers))
-	for _, performer := range performers.Performers {
+	items := make([]map[string]any, 0, len(performers))
+	for _, performer := range performers {
 		items = append(items, s.formatPerformer(performer, ""))
 	}
-	writeJSON(w, http.StatusOK, itemsResponse(items, start, performers.Count))
+	writeJSON(w, http.StatusOK, itemsResponse(items, start, total))
 }
 
 func (s *Server) person(w http.ResponseWriter, r *http.Request, id string) {
@@ -709,10 +744,13 @@ func (s *Server) playing(w http.ResponseWriter, r *http.Request, p string) {
 	}
 	var event struct {
 		ItemID                 string `json:"ItemId"`
+		PlaySessionID          string `json:"PlaySessionId"`
 		PositionTicks          int64  `json:"PositionTicks"`
 		PlaybackStartTimeTicks int64  `json:"PlaybackStartTimeTicks"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&event)
+	if !decodeJSONBody(w, r, &event) {
+		return
+	}
 	sceneIDValue := numericSceneID(event.ItemID)
 	if sceneIDValue == "" || sceneIDValue == event.ItemID && !strings.HasPrefix(event.ItemID, "scene-") {
 		writeJSON(w, http.StatusOK, map[string]any{})
@@ -720,13 +758,22 @@ func (s *Server) playing(w http.ResponseWriter, r *http.Request, p string) {
 	}
 
 	resumeSeconds := ticksToSeconds(event.PositionTicks)
-	playDuration := resumeSeconds
-	if strings.HasSuffix(p, "/stopped") || strings.HasSuffix(p, "/progress") {
-		if err := s.stash.SaveSceneActivity(r.Context(), sceneIDValue, resumeSeconds, playDuration); err != nil {
+	stopped := strings.HasSuffix(p, "/stopped")
+	sessionKey := event.ItemID
+	if event.PlaySessionID != "" {
+		sessionKey = event.PlaySessionID + "\x00" + event.ItemID
+	}
+	update := s.playback.observe(sessionKey, resumeSeconds, stopped)
+	if update.duplicate {
+		writeJSON(w, http.StatusOK, map[string]any{})
+		return
+	}
+	if stopped || strings.HasSuffix(p, "/progress") {
+		if err := s.stash.SaveSceneActivity(r.Context(), sceneIDValue, resumeSeconds, update.playDuration); err != nil {
 			s.log.Warn("save scene activity failed", "scene_id", sceneIDValue, "error", err)
 		}
 	}
-	if strings.HasSuffix(p, "/stopped") {
+	if stopped {
 		if scene, ok, err := s.stash.FindScene(r.Context(), sceneIDValue); err == nil && ok {
 			duration := firstFile(scene).Duration
 			if duration > 0 && resumeSeconds/duration >= 0.9 {
@@ -1140,8 +1187,28 @@ func (s *Server) fetchImage(ctx context.Context, publicURL string) (image.Image,
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, io.ErrUnexpectedEOF
 	}
-	img, _, err := image.Decode(resp.Body)
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxCoverImageBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxCoverImageBytes {
+		return nil, fmt.Errorf("image exceeds %d bytes", maxCoverImageBytes)
+	}
+	imageConfig, _, err := image.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	if !coverImageDimensionsAllowed(imageConfig) {
+		return nil, fmt.Errorf("image dimensions exceed safety limits: %dx%d", imageConfig.Width, imageConfig.Height)
+	}
+	img, _, err := image.Decode(bytes.NewReader(data))
 	return img, err
+}
+
+func coverImageDimensionsAllowed(cfg image.Config) bool {
+	return cfg.Width > 0 && cfg.Height > 0 &&
+		cfg.Width <= maxCoverImageSide && cfg.Height <= maxCoverImageSide &&
+		int64(cfg.Width)*int64(cfg.Height) <= maxCoverImagePixels
 }
 
 func drawCropped(dst draw.Image, rect image.Rectangle, src image.Image) {
@@ -1780,7 +1847,12 @@ func entityUUID(kind, id string) string {
 	case "tag":
 		prefix = "30000000"
 	}
-	n, _ := strconv.ParseUint(id, 10, 64)
+	n, err := strconv.ParseUint(id, 10, 64)
+	if err != nil || n >= 1_000_000_000_000 {
+		hash := fnv.New64a()
+		_, _ = hash.Write([]byte(kind + "\x00" + id))
+		n = hash.Sum64()%1_000_000_000_000 + 1
+	}
 	return prefix + "-0000-0000-0000-" + leftPad(strconv.FormatUint(n, 10), 12, "0")
 }
 

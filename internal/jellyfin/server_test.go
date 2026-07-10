@@ -1,8 +1,12 @@
 package jellyfin
 
 import (
+	"bytes"
 	"encoding/json"
+	"image"
+	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/BaksiLi/stashfin/internal/buildinfo"
@@ -107,5 +111,80 @@ func TestHealthReportsStashfinBuild(t *testing.T) {
 	}
 	if response["version"] != "v1.2.3" || response["commit"] != "abc123" {
 		t.Fatalf("health response = %#v", response)
+	}
+}
+
+func TestAuthenticationIsIntentionallyPasswordOnly(t *testing.T) {
+	server := NewServer(config.Config{
+		User:        "stashfin",
+		Password:    "correct-password",
+		AccessToken: "token",
+	}, nil, nil)
+	body := bytes.NewBufferString(`{"Username":"anything-infuse-requires","Pw":"correct-password"}`)
+	request := httptest.NewRequest(http.MethodPost, "/Users/AuthenticateByName", body)
+	recorder := httptest.NewRecorder()
+	server.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body.String())
+	}
+	var response struct {
+		User struct {
+			Name string `json:"Name"`
+		} `json:"User"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if response.User.Name != "stashfin" {
+		t.Fatalf("user name = %q", response.User.Name)
+	}
+}
+
+func TestAuthenticationRejectsInvalidJSON(t *testing.T) {
+	server := NewServer(config.Config{Password: "password"}, nil, nil)
+	request := httptest.NewRequest(http.MethodPost, "/Users/AuthenticateByName", bytes.NewBufferString(`{"Pw":`))
+	recorder := httptest.NewRecorder()
+	server.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestAuthenticationRejectsOversizedJSON(t *testing.T) {
+	server := NewServer(config.Config{Password: "password"}, nil, nil)
+	body := bytes.NewBufferString(`{"Pw":"` + strings.Repeat("x", maxJSONBodyBytes) + `"}`)
+	request := httptest.NewRequest(http.MethodPost, "/Users/AuthenticateByName", body)
+	recorder := httptest.NewRecorder()
+	server.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestInvalidEntityIDsDoNotCollapseToZero(t *testing.T) {
+	first := entityUUID("tag", "not-a-number")
+	second := entityUUID("tag", "another-invalid-id")
+	if first == second || strings.HasSuffix(first, "-000000000000") || strings.HasSuffix(second, "-000000000000") {
+		t.Fatalf("invalid IDs collapsed: %q %q", first, second)
+	}
+}
+
+func TestCoverImageDimensionLimits(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		config  image.Config
+		allowed bool
+	}{
+		{name: "normal", config: image.Config{Width: 3000, Height: 2000}, allowed: true},
+		{name: "too many pixels", config: image.Config{Width: 5000, Height: 3000}, allowed: false},
+		{name: "side too long", config: image.Config{Width: maxCoverImageSide + 1, Height: 1}, allowed: false},
+		{name: "empty", config: image.Config{}, allowed: false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := coverImageDimensionsAllowed(tt.config); got != tt.allowed {
+				t.Fatalf("allowed = %v", got)
+			}
+		})
 	}
 }

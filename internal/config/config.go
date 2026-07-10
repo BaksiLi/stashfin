@@ -26,7 +26,6 @@ type Config struct {
 
 	DefaultPageSize int
 	MaxPageSize     int
-	StreamStrategy  string
 }
 
 func Load() (Config, error) {
@@ -42,7 +41,6 @@ func Load() (Config, error) {
 		StashTimeout:     envDuration("STASH_TIMEOUT", 15*time.Second),
 		DefaultPageSize:  envInt("STASHFIN_DEFAULT_PAGE_SIZE", 50),
 		MaxPageSize:      envInt("STASHFIN_MAX_PAGE_SIZE", 200),
-		StreamStrategy:   strings.ToLower(env("STASHFIN_STREAM_STRATEGY", "redirect")),
 	}
 
 	cfg.AllowEmptyPassword = envBool("STASHFIN_ALLOW_EMPTY_PASSWORD", false)

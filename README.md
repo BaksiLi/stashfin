@@ -87,8 +87,8 @@ public origin before redirecting the client.
 | `STASHFIN_PUBLISHED_PORT` | `19998` | Host port used by Compose |
 | `STASHFIN_SERVER_NAME` | `Stashfin` | Name shown to Jellyfin clients |
 | `STASHFIN_SERVER_ID` | required | Stable server identity |
-| `STASHFIN_USER` | `stashfin` | Jellyfin login name |
-| `STASHFIN_PASSWORD` | required | Jellyfin login password |
+| `STASHFIN_USER` | `stashfin` | Display name returned to Jellyfin clients |
+| `STASHFIN_PASSWORD` | required | The single login credential |
 | `STASH_INTERNAL_URL` | `http://stash:9999` | Stash URL reachable from Stashfin |
 | `STASH_PUBLIC_URL` | required | Stash URL reachable from the client |
 | `STASH_API_KEY` | required | Stash GraphQL and stream credential |
@@ -111,6 +111,10 @@ version is available in the `X-Stashfin-Version` response header and
 Stashfin intentionally implements the Jellyfin surface needed by this workflow,
 not the complete Jellyfin API. Unknown endpoints return conservative empty
 responses where that keeps clients functional.
+
+Infuse requires a username field when adding a Jellyfin share, but Stashfin is
+deliberately password-only. Any non-sensitive username can be entered in Infuse;
+the configured `STASHFIN_USER` remains the stable display name and user ID.
 
 ## Security
 

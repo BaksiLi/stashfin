@@ -53,7 +53,6 @@ func main() {
 			"server_name", cfg.ServerName,
 			"stash_internal_url", cfg.StashInternalURL,
 			"stash_public_url", cfg.StashPublicURL,
-			"stream_strategy", cfg.StreamStrategy,
 		)
 		errs <- server.ListenAndServe()
 	}()
